@@ -21,6 +21,16 @@ module.exports = ({ strapi }) => {
   const contentTypeService = strapi.plugin('meilisearch').service('contentType')
   return {
     /**
+     * Get the name of the global index.
+     *
+     * @return {String} - Index name
+     */
+    getGlobalIndexName: function () {
+      const globalConfig = meilisearchConfig['__global'] || {}
+      return globalConfig.indexName || undefined
+    },
+
+    /**
      * Get the name of the index from Meilisearch in which the contentType content is added.
      *
      * @param {object} options

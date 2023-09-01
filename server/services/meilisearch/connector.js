@@ -72,7 +72,8 @@ module.exports = ({ strapi, adapter, config }) => {
     getIndexes: async function () {
       try {
         const { apiKey, host } = await store.getCredentials()
-        const client = Meilisearch({ apiKey, host })
+        const globalIndex = config.getGlobalIndexName()
+        const client = Meilisearch({ apiKey, host, globalIndex })
         const { results: indexes } = await client.getIndexes()
         return indexes
       } catch (e) {
@@ -99,6 +100,14 @@ module.exports = ({ strapi, adapter, config }) => {
         adapter.addCollectionNamePrefixToId({ entryId, contentType })
       )
 
+      const globalIndex = config.getGlobalIndexName()
+
+      if (globalIndex) {
+        await client.index(globalIndex).deleteDocuments(documentsIds)
+      }
+
+
+
       return await client.index(indexUid).deleteDocuments(documentsIds)
     },
 
@@ -114,6 +123,7 @@ module.exports = ({ strapi, adapter, config }) => {
     updateEntriesInMeilisearch: async function ({ contentType, entries }) {
       const { apiKey, host } = await store.getCredentials()
       const client = Meilisearch({ apiKey, host })
+      const globalIndex = config.getGlobalIndexName()
 
       if (!Array.isArray(entries)) entries = [entries]
 
@@ -126,6 +136,14 @@ module.exports = ({ strapi, adapter, config }) => {
           adapter,
         })
         if (sanitized.length === 0) {
+          if (globalIndex) {
+            await client.index(globalIndex).deleteDocument(
+              adapter.addCollectionNamePrefixToId({
+                contentType,
+                entryId: entry.id,
+              })
+            )
+          }
           return client.index(indexUid).deleteDocument(
             adapter.addCollectionNamePrefixToId({
               contentType,
@@ -133,6 +151,12 @@ module.exports = ({ strapi, adapter, config }) => {
             })
           )
         } else {
+          if (globalIndex) {
+            await client
+              .index(globalIndex)
+              .updateDocuments(sanitized, { primaryKey: '_meilisearch_id' })
+          }
+
           return client
             .index(indexUid)
             .updateDocuments(sanitized, { primaryKey: '_meilisearch_id' })
@@ -259,6 +283,14 @@ module.exports = ({ strapi, adapter, config }) => {
       const task = await client
         .index(indexUid)
         .addDocuments(documents, { primaryKey: '_meilisearch_id' })
+
+      const globalIndex = config.getGlobalIndexName()
+      if (globalIndex) {
+        await client
+          .index(globalIndex)
+          .addDocuments(documents, { primaryKey: '_meilisearch_id' })
+      }
+
       await store.addIndexedContentType({ contentType })
 
       return task
@@ -281,6 +313,8 @@ module.exports = ({ strapi, adapter, config }) => {
       const settings = config.getSettings({ contentType })
       await client.index(indexUid).updateSettings(settings)
 
+      const globalIndex = config.getGlobalIndexName()
+
       // Callback function for batching action
       const addDocuments = async ({ entries, contentType }) => {
         // Sanitize entries
@@ -295,6 +329,13 @@ module.exports = ({ strapi, adapter, config }) => {
         const task = await client
           .index(indexUid)
           .addDocuments(documents, { primaryKey: '_meilisearch_id' })
+
+
+        if (globalIndex) {
+          await client
+            .index(globalIndex)
+            .addDocuments(documents, { primaryKey: '_meilisearch_id' })
+        }
 
         return task.taskUid
       }

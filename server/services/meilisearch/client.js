@@ -9,8 +9,17 @@ const packageJson = require('../../../package.json')
  *
  * @returns { object } - Meilisearch client instance.
  */
-module.exports = config =>
-  new Meilisearch({
+module.exports = ({ globalIndex, ...config}) => {
+  const client = new Meilisearch({
     ...config,
     clientAgents: [`Meilisearch Strapi (v${packageJson.version})`],
   })
+
+  if (globalIndex) {
+    console.log("*********** Meilisearch: CREATED GLOBAL INDEX", globalIndex)
+    client.createIndex(globalIndex, { primaryKey: '_meilisearch_id'})
+  }
+
+  return client
+
+}
